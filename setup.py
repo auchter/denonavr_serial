@@ -22,6 +22,6 @@ setup(
     ],
     keywords='denon stereo receiver avr serial rs232',
     packages=['denonavr_serial'],
-    install_requires=[],
+    install_requires=['pyserial'],
     entry_points={}
 )
