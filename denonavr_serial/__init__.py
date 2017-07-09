@@ -41,7 +41,7 @@ class Denon(object):
 
             buf = b''
             t1 = datetime.now()
-            while buf.count(b'\r') != lines:
+            while buf.count(b'\r') < lines:
                 buf += self.serial.read(self.serial.inWaiting())
                 total_time = (datetime.now() - t1).total_seconds()
                 if (total_time > timeout):
