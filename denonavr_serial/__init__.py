@@ -2,6 +2,7 @@
 
 import serial
 from datetime import datetime
+from threading import RLock
 
 
 DENON_SOURCE_PHONO = "PHONO"
@@ -22,50 +23,56 @@ DENON_SOURCE_MD_TAPE2 = "MD/TAPE2"
 class Denon(object):
     def __init__(self, port, sources=[], zones=[]):
         self.serial = serial.Serial(port=port, baudrate=9600)
+        self.lock = RLock()
         self.main = DenonMain(self)
         self.zone = [DenonZone(self, zone) for zone in zones]
         self.sources = sources
 
     def _command(self, cmd, lines=1, timeout=0.3):
-        cmd += '\r'
-        cmd = cmd.encode('ascii')
+        with self.lock:
+            cmd += '\r'
+            cmd = cmd.encode('ascii')
 
-        # drain input buffer prior to writing
-        self.serial.read(self.serial.inWaiting())
+            # drain input buffer prior to writing
+            self.serial.read(self.serial.inWaiting())
 
-        self.serial.write(cmd)
-        self.serial.flush()
+            self.serial.write(cmd)
+            self.serial.flush()
 
-        buf = b''
-        t1 = datetime.now()
-        while buf.count(b'\r') != lines:
-            buf += self.serial.read(self.serial.inWaiting())
-            total_time = (datetime.now() - t1).total_seconds()
-            if (total_time > timeout):
-                break
+            buf = b''
+            t1 = datetime.now()
+            while buf.count(b'\r') != lines:
+                buf += self.serial.read(self.serial.inWaiting())
+                total_time = (datetime.now() - t1).total_seconds()
+                if (total_time > timeout):
+                    break
 
-        lines = buf.decode('ascii').split('\r')[:lines]
-        return lines
+            lines = buf.decode('ascii').split('\r')[:lines]
+            return lines
 
     def _query(self, cmd, timeout=0.3):
-        r = self._command(cmd, lines=1, timeout=timeout)
-        return r[0]
+        with self.lock:
+            r = self._command(cmd, lines=1, timeout=timeout)
+            return r[0]
 
     def _validate_source(self, source):
         if source not in self.sources:
             raise ValueError('invalid source: ' + str(source))
 
     def power_on(self):
-        if not self.powered_on():
-            self._command("PWON")
+        with self.lock:
+            if not self.powered_on():
+                self._command("PWON")
 
     def power_off(self):
-        if self.powered_on():
-            self._command("PWSTANDBY")
+        with self.lock:
+            if self.powered_on():
+                self._command("PWSTANDBY")
 
     def powered_on(self):
-        resp = self._query("PW?")
-        return resp == 'PWON'
+        with self.lock:
+            resp = self._query("PW?")
+            return resp == 'PWON'
 
 
 class DenonMain(object):
@@ -73,15 +80,18 @@ class DenonMain(object):
         self.denon = denon
 
     def power_on(self):
-        if not self.powered_on():
-            self.denon._command('ZMON')
+        with self.denon.lock:
+            if not self.powered_on():
+                self.denon._command('ZMON')
 
     def power_off(self):
-        if self.powered_on():
-            self.denon._command('ZMOFF')
+        with self.denon.lock:
+            if self.powered_on():
+                self.denon._command('ZMOFF')
 
     def powered_on(self):
-        return 'ON' in self.denon._query('ZM?')
+        with self.denon.lock:
+            return 'ON' in self.denon._query('ZM?')
 
     def volume_up(self):
         self.denon._command('MVUP')
@@ -131,9 +141,10 @@ class DenonMain(object):
 
     def set_source(self, source):
         self.denon._validate_source(source)
-        if source == self.get_source():
-            return
-        self.denon._command('SI' + source, lines=15, timeout=1.0)
+        with self.denon.lock:
+            if source == self.get_source():
+                return
+            self.denon._command('SI' + source, lines=15, timeout=1.0)
 
     def get_source(self):
         source = self.denon._command('SI?', lines=15, timeout=0.5)[0]
@@ -155,12 +166,14 @@ class DenonZone(object):
         self.denon._command(self.zone + cmd)
 
     def power_on(self):
-        if not self.powered_on():
-            self._command('ON')
+        with self.denon.lock:
+            if not self.powered_on():
+                self._command('ON')
 
     def power_off(self):
-        if self.powered_on():
-            self._command('OFF')
+        with self.denon.lock:
+            if self.powered_on():
+                self._command('OFF')
 
     def powered_on(self):
         return (self.zone + 'ON') in self._query()
@@ -190,9 +203,10 @@ class DenonZone(object):
 
     def set_source(self, source):
         self.denon._validate_source(source)
-        if source == self.get_source():
-            return
-        self.denon._command(self.zone + source)
+        with self.denon.lock:
+            if source == self.get_source():
+                return
+            self.denon._command(self.zone + source)
 
 
 class Avr3805(Denon):
