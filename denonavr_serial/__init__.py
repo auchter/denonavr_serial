@@ -93,11 +93,13 @@ class DenonMain(object):
         with self.denon.lock:
             return 'ON' in self.denon._query('ZM?')
 
-    def volume_up(self):
-        self.denon._command('MVUP')
+    def volume_up(self, blocking=False):
+        lines = 1 if blocking else 0
+        self.denon._command('MVUP', lines=lines)
 
-    def volume_down(self):
-        self.denon._command('MVDOWN')
+    def volume_down(self, blocking=False):
+        lines = 1 if blocking else 0
+        self.denon._command('MVDOWN', lines=lines)
 
     def mute(self):
         self.denon._command('MUON')
@@ -162,8 +164,8 @@ class DenonZone(object):
     def _query(self):
         return self.denon._command(self.zone + '?', lines=3)
 
-    def _command(self, cmd):
-        self.denon._command(self.zone + cmd)
+    def _command(self, cmd, lines=1):
+        self.denon._command(self.zone + cmd, lines=lines)
 
     def power_on(self):
         with self.denon.lock:
@@ -178,11 +180,13 @@ class DenonZone(object):
     def powered_on(self):
         return (self.zone + 'ON') in self._query()
 
-    def volume_up(self):
-        self._command('UP')
+    def volume_up(self, blocking=False):
+        lines = 1 if blocking else 0
+        self._command('UP', lines=lines)
 
-    def volume_down(self):
-        self._command('DOWN')
+    def volume_down(self, blocking=False):
+        lines = 1 if blocking else 0
+        self._command('DOWN', lines=lines)
 
     def set_volume(self, level):
         if level < 0.0 or level > 1.0:

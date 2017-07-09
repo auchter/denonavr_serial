@@ -31,16 +31,28 @@ class DenonCommonTest(object):
         default = self.denon.get_volume()
         self.assertAlmostEqual(self.denon.get_volume(), 0.5)
 
-        self.denon.volume_down()
+        self.denon.volume_down(blocking=True)
         l = self.denon.get_volume()
         self.assertLess(l, default)
 
-        self.denon.volume_up()
-        self.denon.volume_up()
+        self.denon.volume_up(blocking=True)
+        self.denon.volume_up(blocking=True)
         h = self.denon.get_volume()
         self.assertGreater(h, default)
 
         self.assertAlmostEquals(h - default, default - l)
+
+    def test_volume_up_nonblocking(self):
+        self.require_power_on()
+        self.denon.set_volume(0.5)
+        default = self.denon.get_volume()
+        self.assertAlmostEqual(self.denon.get_volume(), 0.5)
+
+        for i in range(0, 10):
+            self.denon.volume_up(blocking=False)
+
+        vol = self.denon.get_volume()
+        self.assertGreater(vol, default)
 
     def test_get_source(self):
         self.require_power_on()
